@@ -1,8 +1,13 @@
 {
-  "Author": "Star Garden",
+  "Author": "TuaCreations",
   "Name": "K.I.S.S. RP Combat Logger",
   "Punchline": "Live roll log, enemy HP and party state for Star Garden RP events.",
   "Description": "Shares one live combat state across everyone in a Star Garden event. The GM's client reads /random rolls from chat and applies the Garden combat rules; every player sees enemy HP, party HP, Momentum and the roll log in a window, plus enemy markers drawn in the world.",
-  "Tags": [ "roleplay", "rp", "tracker", "dice" ],
-  "RepoUrl": "https://stargarden.crd.co/"
+  "Tags": [
+    "roleplay",
+    "rp",
+    "tracker",
+    "dice"
+  ],
+  "RepoUrl": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger"
 }

@@ -1,0 +1,78 @@
+# Builds the plugin and publishes it whenever you publish a GitHub Release (e.g. tag v0.1.0).
+# Then updates repo.json so Dalamud's custom repository offers the new version.
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+                    ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download Dalamud
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile dalamud.zip
+          Expand-Archive -Force dalamud.zip "$env:AppData\XIVLauncher\addon\Hooks\dev\"
+
+      - name: Work out version from the release tag
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $v = $tag.TrimStart('v', 'V')
+          while (($v.Split('.')).Count -lt 4) { $v = "$v.0" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build GardenTracker/GardenTracker.csproj -c Release -p:Version=${{ steps.ver.outputs.version }}
+
+      - name: Find latest.zip
+        id: zip
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Recurse -Path GardenTracker/bin -Filter latest.zip | Select-Object -First 1
+          if (-not $zip) { throw "latest.zip was not produced by the build" }
+          Copy-Item $zip.FullName latest.zip
+          "path=latest.zip" >> $env:GITHUB_OUTPUT
+
+      - name: Attach latest.zip to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          files: latest.zip
+
+      - name: Update repo.json
+        shell: pwsh
+        run: |
+          $url = "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.tag }}/latest.zip"
+          $repo = Get-Content repo.json -Raw | ConvertFrom-Json
+          foreach ($p in @($repo)) {
+            $p.AssemblyVersion = "${{ steps.ver.outputs.version }}"
+            $p.DownloadLinkInstall = $url
+            $p.DownloadLinkTesting = $url
+            $p.DownloadLinkUpdate = $url
+            $p.LastUpdate = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          }
+          ConvertTo-Json @($repo) -Depth 5 | Set-Content repo.json -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+          git commit -m "Release ${{ steps.ver.outputs.tag }}: update repo.json"
+                    git push origin HEAD:${{ github.event.repository.default_branch }}
