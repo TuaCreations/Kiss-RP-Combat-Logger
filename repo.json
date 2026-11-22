@@ -3,7 +3,7 @@
     "Author": "TuaCreations",
     "Name": "K.I.S.S. RP Combat Logger",
     "InternalName": "GardenTracker",
-    "AssemblyVersion": "0.2.0.0",
+    "AssemblyVersion": "0.3.0.0",
     "Punchline": "Live roll log, enemy HP and party state for K.I.S.S. RP combat events.",
     "Description": "Shares one live combat state across everyone at a Star Garden RP event. The GM's client reads /random rolls and applies the K.I.S.S. combat rules, enemy abilities call for saves that resolve automatically, and every player sees enemy HP, party HP, Momentum and the roll log, plus enemy markers drawn in the world. Fights load from kiss-scenario files.",
     "ApplicableVersion": "any",
@@ -20,9 +20,9 @@
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1795313476,
-    "DownloadLinkInstall": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.2.0/latest.zip",
-    "DownloadLinkTesting": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.2.0/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.2.0/latest.zip"
+    "LastUpdate": 1795316392,
+    "DownloadLinkInstall": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.0/latest.zip",
+    "DownloadLinkTesting": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.0/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.0/latest.zip"
   }
 ]
