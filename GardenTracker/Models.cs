@@ -84,6 +84,7 @@ public sealed class SessionInfo
     public string ScenarioName { get; set; } = "";
     public EnemyAction? MomentumAction { get; set; }
     public List<StatusDef> Statuses { get; set; } = new();
+    public bool ShowEnemyHp { get; set; } = true;
 }
 
 public sealed class PartyMember
@@ -100,6 +101,19 @@ public sealed class PartyMember
     public int Momentum { get; set; }
     public int MomentumMax { get; set; } = 25;
     public int Sort { get; set; }
+
+    // What the player picked in their own window
+    public Guid? TargetEnemyId { get; set; }
+    public Guid? HealTargetId { get; set; }
+
+    // Crit / Momentum bank: the next BankRolls rolls are added up and applied as one lump sum
+    public string BankKind { get; set; } = "";   // "" | attack | heal
+    public string BankLabel { get; set; } = "";
+    public int BankAmount { get; set; }
+    public int BankRolls { get; set; }
+    public Guid? BankEnemyId { get; set; }
+    public Guid? BankHealId { get; set; }
+    public bool Banking => BankRolls > 0;
 }
 
 public sealed class Enemy

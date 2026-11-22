@@ -30,6 +30,7 @@ public sealed class TrackerWindow : Window
         if (s == null) return;
 
         DrawSavesCalled(s);
+        DrawMyAction(s);
         DrawEnemies(s);
         DrawParty(s);
         DrawRollLog(s);
@@ -89,7 +90,15 @@ public sealed class TrackerWindow : Window
                 ImGui.SameLine();
                 ImGui.TextColored(Ui.Violet, $"[{e.Effects}]");
             }
-            Ui.Bar(e.HpMax > 0 ? (float)e.Hp / e.HpMax : 0, $"{e.Hp} / {e.HpMax}", Ui.HpColor(e.Hp, e.HpMax));
+            if (s.Session.ShowEnemyHp || p.IsGm)
+            {
+                var hidden = !s.Session.ShowEnemyHp ? "  (hidden from players)" : "";
+                Ui.Bar(e.HpMax > 0 ? (float)e.Hp / e.HpMax : 0, $"{e.Hp} / {e.HpMax}{hidden}", Ui.HpColor(e.Hp, e.HpMax));
+            }
+            else if (e.HpMax > 0)
+            {
+                ImGui.TextColored(Ui.HpColor(e.Hp, e.HpMax), Ui.HpWord(e.Hp, e.HpMax));
+            }
             if (!string.IsNullOrWhiteSpace(e.Abilities) && ImGui.TreeNode("Abilities"))
             {
                 ImGui.PushTextWrapPos(0);
@@ -138,6 +147,12 @@ public sealed class TrackerWindow : Window
             else ImGui.TextUnformatted(m.Name);
             if (!string.IsNullOrWhiteSpace(m.Effects))
                 ImGui.TextColored(Ui.Violet, m.Effects);
+            if (m.Banking)
+                ImGui.TextColored(Ui.Gold, $"{m.BankLabel}: {m.BankAmount} banked, {m.BankRolls} roll{(m.BankRolls == 1 ? "" : "s")} left");
+            else if (m.TargetEnemyId is Guid te && s.Enemies.FirstOrDefault(x => x.Id == te) is { } foe)
+                ImGui.TextColored(Ui.Grey, $"-> {foe.Name}");
+            else if (m.HealTargetId is Guid th && s.Members.FirstOrDefault(x => x.Id == th) is { } friend)
+                ImGui.TextColored(Ui.Grey, $"-> heal {friend.Name}");
 
             ImGui.TableNextColumn();
             Ui.Bar(m.HpMax > 0 ? (float)m.Hp / m.HpMax : 0, $"{m.Hp}/{m.HpMax}", Ui.HpColor(m.Hp, m.HpMax), -1, 16);
@@ -170,6 +185,54 @@ public sealed class TrackerWindow : Window
             ImGui.TextUnformatted(Describe(r));
         }
         if (s.Rolls.Count == 0) ImGui.TextColored(Ui.Grey, "No rolls yet. Use /random 10.");
+    }
+
+    /// <summary>The local player's own controls: pick who you attack or heal. The GM's resolve uses it.</summary>
+    private void DrawMyAction(GardenState s)
+    {
+        var meName = Plugin.LocalPlayerName;
+        if (meName == null) return;
+        var me = s.Members.FirstOrDefault(m => m.Name.Equals(meName, StringComparison.OrdinalIgnoreCase));
+        if (me == null) return;
+
+        Ui.Header("YOUR ACTION");
+        if (me.Banking)
+        {
+            ImGui.TextColored(Ui.Gold, $"{me.BankLabel}! {me.BankAmount} banked - roll /random 10 ({me.BankRolls} more roll{(me.BankRolls == 1 ? "" : "s")}).");
+        }
+
+        var foes = s.Enemies.Where(e => e.Visible && (e.Hp > 0 || e.HpMax == 0)).ToList();
+        var currentFoe = s.Enemies.FirstOrDefault(e => e.Id == me.TargetEnemyId);
+        var currentAlly = s.Members.FirstOrDefault(m => m.Id == me.HealTargetId);
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("Attack:");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(170);
+        if (ImGui.BeginCombo("##myatk", currentFoe?.Name ?? "-"))
+        {
+            if (ImGui.Selectable("- none -", currentFoe == null)) SetIntent(meName, null, me.HealTargetId);
+            foreach (var e in foes)
+                if (ImGui.Selectable($"{e.Name}##{e.Id}", e.Id == me.TargetEnemyId)) SetIntent(meName, e.Id, null);
+            ImGui.EndCombo();
+        }
+        ImGui.SameLine();
+        ImGui.TextUnformatted("or Heal:");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(150);
+        if (ImGui.BeginCombo("##myheal", currentAlly?.Name ?? "-"))
+        {
+            if (ImGui.Selectable("- none -", currentAlly == null)) SetIntent(meName, me.TargetEnemyId, null);
+            foreach (var m in s.Members)
+                if (ImGui.Selectable($"{m.Name}##{m.Id}", m.Id == me.HealTargetId)) SetIntent(meName, null, m.Id);
+            ImGui.EndCombo();
+        }
+        Ui.Tooltip("Your GM applies your next roll to this target. Pick one, then /random 10.");
+    }
+
+    private void SetIntent(string name, Guid? enemy, Guid? heal)
+    {
+        p.Run(() => p.Api.SetIntent(name, enemy, heal));
     }
 
     private static void DrawSavesCalled(GardenState s)
@@ -209,6 +272,7 @@ public sealed class TrackerWindow : Window
         "save" => string.IsNullOrEmpty(r.Target) ? $"{r.Roller} saves{Suffix(r)}" : $"{r.Roller} vs {r.Target}{Suffix(r)}",
         "check" => $"{r.Roller} makes a check{Suffix(r)}",
         "enemy" => $"{r.Roller} uses {r.Target} (+{r.Amount} Enemy Momentum)",
+        "bank" => $"{r.Roller} ({r.Target}){Suffix(r)}",
         "ignored" => $"{r.Roller} (not counted)",
         _ => $"{r.Roller} rolls... (GM resolving)",
     };

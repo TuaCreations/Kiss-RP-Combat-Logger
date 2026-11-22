@@ -34,9 +34,18 @@ public sealed class GmActions
             }
 
             var dmg = Math.Max(0, Rules.Amount(roll.Roll) + bonus);
+
+            // Crit: bank the 5 and wait for the bonus roll, then apply everything as one hit.
+            if (Rules.IsCrit(roll.Roll) && member != null)
+            {
+                await Api.StartBank(member.Id, "attack", "Crit", enemy.Id, null, dmg, 1);
+                await Api.ResolveRoll(roll.Id, "attack", enemy.Name, dmg, $"CRIT - {dmg} banked, roll again!");
+                return;
+            }
+
             var hp = Math.Max(0, enemy.Hp - dmg);
             await Api.UpsertEnemy(new { id = enemy.Id, hp });
-            var note = Rules.IsCrit(roll.Roll) ? "CRIT - roll again" : Rules.Label(roll.Roll);
+            var note = Rules.Label(roll.Roll);
             if (hp == 0) note += $" - {enemy.Name} falls!";
             await Api.ResolveRoll(roll.Id, "attack", enemy.Name, dmg, note);
         });
@@ -51,10 +60,19 @@ public sealed class GmActions
                 await Api.UpsertMember(new { id = healer.Id, momentum = healer.Momentum + roll.Roll });
 
             var heal = Math.Max(0, Rules.Amount(roll.Roll) + bonus);
-            var hp = Math.Min(target.HpMax, target.Hp + heal);
             var selfMomentum = healer != null && healer.Id == target.Id ? target.Momentum + roll.Roll : target.Momentum;
+
+            if (Rules.IsCrit(roll.Roll) && healer != null)
+            {
+                if (healer.Id == target.Id) await Api.UpsertMember(new { id = target.Id, momentum = selfMomentum });
+                await Api.StartBank(healer.Id, "heal", "Crit heal", null, target.Id, heal, 1);
+                await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, $"CRIT - {heal} banked, roll again!");
+                return;
+            }
+
+            var hp = Math.Min(target.HpMax, target.Hp + heal);
             await Api.UpsertMember(new { id = target.Id, hp, momentum = selfMomentum });
-            await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, Rules.IsCrit(roll.Roll) ? "CRIT - roll again" : "");
+            await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, "");
         });
     }
 
@@ -110,12 +128,43 @@ public sealed class GmActions
         p.Run(() => Api.UpsertMember(new { id = m.Id, interception = m.Interception - 1 }));
     }
 
-    public void UnleashMomentum(PartyMember m)
+    /// <summary>
+    /// Spends Momentum and opens a bank: 10 DMG (or 5 healing) now, plus the player's next 2 rolls,
+    /// all applied as one lump sum when the second roll comes in.
+    /// Uses the target the player picked in their window, or the GM's fallback target.
+    /// </summary>
+    public void UnleashMomentum(PartyMember m, bool heal, Enemy? fallbackEnemy, PartyMember? fallbackAlly)
     {
         if (m.Momentum < m.MomentumMax) { p.Status = $"{m.Name} needs {m.MomentumMax} Momentum."; return; }
-        p.Run(() => Api.UpsertMember(new { id = m.Id, momentum = m.Momentum - m.MomentumMax }));
-        p.Status = $"{m.Name} unleashes Momentum: {Rules.MomentumUnleashDamage} DMG or {Rules.MomentumUnleashHeal} healing, + 2 rolls. Apply it with the HP buttons.";
+        var s = State;
+        if (heal)
+        {
+            var ally = s?.Members.FirstOrDefault(x => x.Id == m.HealTargetId) ?? fallbackAlly;
+            if (ally == null) { p.Status = $"Pick who {m.Name} heals first."; return; }
+            p.Run(async () =>
+            {
+                await Api.UpsertMember(new { id = m.Id, momentum = m.Momentum - m.MomentumMax });
+                await Api.StartBank(m.Id, "heal", "Momentum heal", null, ally.Id, Rules.MomentumUnleashHeal, 2);
+            });
+            p.Status = $"{m.Name} unleashes Momentum on {ally.Name}: {Rules.MomentumUnleashHeal} healing banked. Their next 2 rolls add to it.";
+        }
+        else
+        {
+            var foe = s?.Enemies.FirstOrDefault(x => x.Id == m.TargetEnemyId) ?? fallbackEnemy;
+            if (foe == null) { p.Status = $"Pick who {m.Name} attacks first."; return; }
+            p.Run(async () =>
+            {
+                await Api.UpsertMember(new { id = m.Id, momentum = m.Momentum - m.MomentumMax });
+                await Api.StartBank(m.Id, "attack", "Momentum", foe.Id, null, Rules.MomentumUnleashDamage, 2);
+            });
+            p.Status = $"{m.Name} unleashes Momentum on {foe.Name}: {Rules.MomentumUnleashDamage} DMG banked. Their next 2 rolls add to it.";
+        }
     }
+
+    public void CancelBank(PartyMember m) => p.Run(() => Api.CancelBank(m.Id));
+
+    public Enemy? IntentEnemy(PartyMember? m) => m?.TargetEnemyId is Guid g ? State?.Enemies.FirstOrDefault(e => e.Id == g) : null;
+    public PartyMember? IntentAlly(PartyMember? m) => m?.HealTargetId is Guid g ? State?.Members.FirstOrDefault(x => x.Id == g) : null;
 
     public void ResetMember(PartyMember m) =>
         p.Run(() => Api.UpsertMember(new { id = m.Id, hp = m.HpMax, shield = 0, potions = m.PotionsMax, interception = 1, effects = "", momentum = 0 }));

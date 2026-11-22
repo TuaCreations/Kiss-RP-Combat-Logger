@@ -66,6 +66,15 @@ public static class Ui
         return f > 0.5f ? Green : f > 0.25f ? Gold : Red;
     }
 
+    /// <summary>What players see when the GM hides enemy HP numbers.</summary>
+    public static string HpWord(int hp, int max)
+    {
+        if (max <= 0) return "";
+        if (hp <= 0) return "Defeated";
+        var f = (float)hp / max;
+        return f > 0.75f ? "Unhurt" : f > 0.5f ? "Wounded" : f > 0.25f ? "Bloodied" : "Near death";
+    }
+
     public static void Header(string text)
     {
         ImGui.Spacing();

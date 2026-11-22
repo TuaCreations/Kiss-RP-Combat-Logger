@@ -155,6 +155,10 @@ public sealed class GmWindow : Window
             if (Ui.EditMultiline("passive", s.Session.Passive, out var passive, new Vector2(-1, 60)))
                 p.Run(() => p.Api.SetSession(new { passive }));
 
+            var showHp = s.Session.ShowEnemyHp;
+            if (ImGui.Checkbox("Show enemy HP numbers to players", ref showHp)) p.Run(() => p.Api.SetSession(new { show_enemy_hp = showHp }));
+            Ui.Tooltip("Off: players see Unhurt / Wounded / Bloodied / Near death instead of bars and numbers, in their window and on markers.");
+
             ImGui.TextUnformatted("Enemy Momentum");
             ImGui.SameLine();
             if (Ui.EditInt("em", s.Session.EnemyMomentum, out var em)) p.Run(() => p.Api.SetSession(new { enemy_momentum = Math.Max(0, em) }));
@@ -211,16 +215,23 @@ public sealed class GmWindow : Window
             ImGui.PushID((int)r.Id);
             ImGui.TextColored(r.Roll >= 10 ? Ui.Gold : r.Roll == 1 ? Ui.Red : Ui.Green, $"{r.Roll,2}");
             ImGui.SameLine();
-            var known = p.Gm.FindMember(r.Roller) != null;
+            var who = p.Gm.FindMember(r.Roller);
+            var known = who != null;
             ImGui.TextColored(known ? Ui.Gold : Ui.Grey, r.Roller);
             if (!known) Ui.Tooltip("Not on the party list - Momentum won't be tracked. Add them in the Party tab.");
-            ImGui.SameLine(220);
 
-            if (ImGui.SmallButton("Attack") && atk != null) { p.Gm.ResolveAttack(r, atk, bonus); bonus = 0; }
-            Ui.Tooltip(atk == null ? "Pick an attack target first" : $"Hit {atk.Name}: {Rules.Amount(r.Roll) + bonus} DMG unless it dodges");
+            // The player's own pick (from their window) wins over the GM's dropdowns.
+            var useAtk = p.Gm.IntentEnemy(who) ?? atk;
+            var useHeal = p.Gm.IntentAlly(who) ?? heal;
+            var picked = p.Gm.IntentEnemy(who)?.Name ?? (p.Gm.IntentAlly(who) is { } ally ? $"heal {ally.Name}" : null);
+            if (picked != null) { ImGui.SameLine(); ImGui.TextColored(Ui.Violet, $"-> {picked}"); Ui.Tooltip("Picked by the player"); }
+            ImGui.SameLine(300);
+
+            if (ImGui.SmallButton("Attack") && useAtk != null) { p.Gm.ResolveAttack(r, useAtk, bonus); bonus = 0; }
+            Ui.Tooltip(useAtk == null ? "Pick an attack target first" : $"Hit {useAtk.Name}: {Rules.Amount(r.Roll) + bonus} DMG unless it dodges{(r.Roll >= 10 ? " (crit: banked until the bonus roll)" : "")}");
             ImGui.SameLine();
-            if (ImGui.SmallButton("Heal") && heal != null) { p.Gm.ResolveHeal(r, heal, bonus); bonus = 0; }
-            Ui.Tooltip(heal == null ? "Pick a heal target first" : $"Heal {heal.Name} for {Rules.Amount(r.Roll) + bonus}");
+            if (ImGui.SmallButton("Heal") && useHeal != null) { p.Gm.ResolveHeal(r, useHeal, bonus); bonus = 0; }
+            Ui.Tooltip(useHeal == null ? "Pick a heal target first" : $"Heal {useHeal.Name} for {Rules.Amount(r.Roll) + bonus}");
             ImGui.SameLine();
             if (ImGui.SmallButton("Save")) p.Gm.ResolveSimple(r, "save");
             ImGui.SameLine();
@@ -314,7 +325,23 @@ public sealed class GmWindow : Window
             ImGui.TableNextColumn();
             if (Ui.EditInt($"{id}mo", m.Momentum, out var mo, 36)) p.Run(() => p.Api.UpsertMember(new { id = m.Id, momentum = Math.Max(0, mo) }));
             ImGui.SameLine();
-            if (m.Momentum >= m.MomentumMax) { if (ImGui.SmallButton("Unleash")) p.Gm.UnleashMomentum(m); }
+            if (m.Banking)
+            {
+                ImGui.TextColored(Ui.Gold, $"{m.BankLabel}: {m.BankAmount}, {m.BankRolls} roll{(m.BankRolls == 1 ? "" : "s")} left");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Cancel##bank")) p.Gm.CancelBank(m);
+                Ui.Tooltip("Drop the banked total without applying it");
+            }
+            else if (m.Momentum >= m.MomentumMax)
+            {
+                var fallbackFoe = s.Enemies.FirstOrDefault(e => e.Id == attackTarget);
+                var fallbackAlly = s.Members.FirstOrDefault(x => x.Id == healTarget);
+                if (ImGui.SmallButton("Unleash DMG")) p.Gm.UnleashMomentum(m, false, fallbackFoe, fallbackAlly);
+                Ui.Tooltip($"{Rules.MomentumUnleashDamage} DMG + their next 2 rolls, applied together to {(p.Gm.IntentEnemy(m)?.Name ?? fallbackFoe?.Name ?? "their target")}");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Unleash Heal")) p.Gm.UnleashMomentum(m, true, fallbackFoe, fallbackAlly);
+                Ui.Tooltip($"{Rules.MomentumUnleashHeal} healing + their next 2 rolls, applied together to {(p.Gm.IntentAlly(m)?.Name ?? fallbackAlly?.Name ?? "their ally")}");
+            }
             else ImGui.TextColored(Ui.Grey, $"/{m.MomentumMax}");
 
             ImGui.TableNextColumn();

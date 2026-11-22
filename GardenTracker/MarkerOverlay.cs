@@ -50,7 +50,14 @@ public sealed class MarkerOverlay
             draw.AddRectFilled(textPos - new Vector2(4, 2), textPos + size + new Vector2(4, 2), ImGui.GetColorU32(new Vector4(0, 0, 0, 0.6f)), 4f);
             draw.AddText(textPos, ImGui.GetColorU32(Ui.Gold), label);
 
-            if (enemy != null && enemy.HpMax > 0 && p.Configuration.ShowOverlayHp)
+            var hpVisible = s.Session.ShowEnemyHp || p.IsGm;
+            if (enemy != null && enemy.HpMax > 0 && p.Configuration.ShowOverlayHp && !hpVisible)
+            {
+                var word = Ui.HpWord(enemy.Hp, enemy.HpMax);
+                var ws = ImGui.CalcTextSize(word);
+                draw.AddText(new Vector2(top.X - ws.X / 2, top.Y), ImGui.GetColorU32(Ui.HpColor(enemy.Hp, enemy.HpMax)), word);
+            }
+            else if (enemy != null && enemy.HpMax > 0 && p.Configuration.ShowOverlayHp)
             {
                 const float w = 110f, h = 9f;
                 var barMin = new Vector2(top.X - w / 2, top.Y);

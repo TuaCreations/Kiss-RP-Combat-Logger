@@ -88,6 +88,15 @@ public sealed class GardenApi : IDisposable
 
     public Task ClearRolls() => Rpc("garden_clear_rolls", new { p_code = Code, p_key = Key });
 
+    /// <summary>Player-side: pick your own attack or heal target. Needs only the session code.</summary>
+    public Task SetIntent(string playerName, Guid? enemy, Guid? heal) =>
+        Rpc("garden_set_intent", new { p_code = Code, p_name = playerName, p_enemy = enemy, p_heal = heal });
+
+    public Task StartBank(Guid member, string kind, string label, Guid? enemy, Guid? heal, int amount, int rolls) =>
+        Rpc("garden_start_bank", new { p_code = Code, p_key = Key, p_member = member, p_kind = kind, p_label = label, p_enemy = enemy, p_heal = heal, p_amount = amount, p_rolls = rolls });
+
+    public Task CancelBank(Guid member) => Rpc("garden_cancel_bank", new { p_code = Code, p_key = Key, p_member = member });
+
     public Task CreateSaves(object saves) => Rpc("garden_create_saves", new { p_code = Code, p_key = Key, p = saves });
     public Task CancelSave(long id) => Rpc("garden_cancel_save", new { p_code = Code, p_key = Key, p_id = id });
     public Task ClearEncounter() => Rpc("garden_clear_encounter", new { p_code = Code, p_key = Key });
