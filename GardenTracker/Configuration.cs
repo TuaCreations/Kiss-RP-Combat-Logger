@@ -22,7 +22,8 @@ public sealed class Configuration : IPluginConfiguration
     public bool LogRollsAutomatically { get; set; } = true; // GM only
     public bool OnlyD10Rolls { get; set; } = true;          // ignore /random results above 10
     public bool OnlyRosterRolls { get; set; } = true;       // ignore rolls from players not on the session's party list
-    public bool PluginRollsEnemyDice { get; set; } = true;  // enemy actions roll their own d10 for Enemy Momentum
+    public bool PluginRollsEnemyDice { get; set; } = true;
+    public bool DebugRolls { get; set; } = false;           // echo every roll the plugin sees (or ignores) into your chat  // enemy actions roll their own d10 for Enemy Momentum
     public bool ShowOverlay { get; set; } = true;
     public bool ShowOverlayHp { get; set; } = true;
     public int RollLogLines { get; set; } = 15;

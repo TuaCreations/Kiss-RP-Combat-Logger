@@ -130,6 +130,24 @@ public sealed class GmWindow : Window
             });
         }
 
+        var live = p.Sync.Current;
+        if (p.IsGm && live != null)
+        {
+            Ui.Header("ROLL SOURCES (whole session)");
+            var ss = live.Session;
+            var reports = ss.PlayerReports;
+            if (ImGui.Checkbox("Players' plugins send their own rolls (works at any distance)", ref reports))
+                p.Run(() => p.Api.SetSession(new { player_reports = reports }));
+            SourceBox(ss, "random", "/random");
+            ImGui.SameLine(160); SourceBox(ss, "party", "/dice in Party");
+            ImGui.SameLine(340); SourceBox(ss, "alliance", "/dice in Alliance");
+            SourceBox(ss, "fc", "/dice in Free Company");
+            ImGui.SameLine(160 + 60); SourceBox(ss, "ls", "/dice in Linkshells");
+            ImGui.SameLine(400); SourceBox(ss, "cwls", "/dice in Cross-world LS");
+            SourceBox(ss, "require_icon", "Only count /dice lines with the game's dice icon");
+            Ui.Tooltip("Stops someone faking a roll by typing \"Random! (1-10) 10\" into chat. Turn off if real /dice rolls aren't being counted.");
+        }
+
         Ui.Header("OPTIONS");
         var auto = cfg.LogRollsAutomatically;
         if (ImGui.Checkbox("Log /random rolls from chat automatically", ref auto)) { cfg.LogRollsAutomatically = auto; cfg.Save(); }
@@ -143,6 +161,9 @@ public sealed class GmWindow : Window
         if (ImGui.Checkbox("Only count d10 rolls (/random 10)", ref d10)) { cfg.OnlyD10Rolls = d10; cfg.Save(); }
         var hp = cfg.ShowOverlayHp;
         if (ImGui.Checkbox("Show HP on world markers", ref hp)) { cfg.ShowOverlayHp = hp; cfg.Save(); }
+        var dbg = cfg.DebugRolls;
+        if (ImGui.Checkbox("Show every roll the plugin sees (or ignores) in my chat", ref dbg)) { cfg.DebugRolls = dbg; cfg.Save(); }
+        Ui.Tooltip("Troubleshooting: prints [Garden] lines explaining what was counted and why something was skipped.");
         var lines = cfg.RollLogLines;
         ImGui.SetNextItemWidth(100);
         if (ImGui.InputInt("Roll log lines", ref lines)) { cfg.RollLogLines = Math.Clamp(lines, 3, 50); cfg.Save(); }
@@ -191,7 +212,7 @@ public sealed class GmWindow : Window
             ImGui.EndCombo();
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Heal target:");
+        ImGui.TextUnformatted("Ally (heal/buff/shield):");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(150);
         var heal = s.Members.FirstOrDefault(m => m.Id == healTarget);
@@ -221,17 +242,55 @@ public sealed class GmWindow : Window
             if (!known) Ui.Tooltip("Not on the party list - Momentum won't be tracked. Add them in the Party tab.");
 
             // The player's own pick (from their window) wins over the GM's dropdowns.
+            var kind = GmActions.KindOf(who);
             var useAtk = p.Gm.IntentEnemy(who) ?? atk;
-            var useHeal = p.Gm.IntentAlly(who) ?? heal;
-            var picked = p.Gm.IntentEnemy(who)?.Name ?? (p.Gm.IntentAlly(who) is { } ally ? $"heal {ally.Name}" : null);
-            if (picked != null) { ImGui.SameLine(); ImGui.TextColored(Ui.Violet, $"-> {picked}"); Ui.Tooltip("Picked by the player"); }
+            var useAlly = p.Gm.IntentAlly(who) ?? heal;
+            var pickLabel = kind switch
+            {
+                "attack" when p.Gm.IntentEnemy(who) is { } e1 => $"attack {e1.Name}",
+                "heal" when p.Gm.IntentAlly(who) is { } a1 => $"heal {a1.Name}",
+                "buff_roll" when p.Gm.IntentAlly(who) is { } a2 => $"+roll {a2.Name}",
+                "buff_damage" when p.Gm.IntentAlly(who) is { } a3 => $"+dmg {a3.Name}",
+                "shield" when p.Gm.IntentAlly(who) is { } a4 => $"shield {a4.Name}",
+                _ => null,
+            };
+            if (who != null && (who.BuffRoll > 0 || who.BuffDamage > 0))
+            {
+                ImGui.SameLine();
+                ImGui.TextColored(Ui.Green, $"[+{who.BuffRoll} roll / +{who.BuffDamage} dmg]");
+                Ui.Tooltip("Buffs waiting on this player's roll; Attack/Heal spends them");
+            }
             ImGui.SameLine(300);
+
+            if (pickLabel != null)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Button, Ui.Violet with { W = 0.55f });
+                if (ImGui.SmallButton($"Do: {pickLabel}"))
+                {
+                    switch (kind)
+                    {
+                        case "attack" when useAtk != null: p.Gm.ResolveAttack(r, useAtk, bonus); break;
+                        case "heal" when useAlly != null: p.Gm.ResolveHeal(r, useAlly, bonus); break;
+                        case "buff_roll" or "buff_damage" or "shield" when useAlly != null: p.Gm.ResolveSupport(r, kind, useAlly); break;
+                    }
+                    bonus = 0;
+                }
+                ImGui.PopStyleColor();
+                Ui.Tooltip("Resolve this roll the way the player picked in their window");
+                ImGui.SameLine();
+            }
 
             if (ImGui.SmallButton("Attack") && useAtk != null) { p.Gm.ResolveAttack(r, useAtk, bonus); bonus = 0; }
             Ui.Tooltip(useAtk == null ? "Pick an attack target first" : $"Hit {useAtk.Name}: {Rules.Amount(r.Roll) + bonus} DMG unless it dodges{(r.Roll >= 10 ? " (crit: banked until the bonus roll)" : "")}");
             ImGui.SameLine();
-            if (ImGui.SmallButton("Heal") && useHeal != null) { p.Gm.ResolveHeal(r, useHeal, bonus); bonus = 0; }
-            Ui.Tooltip(useHeal == null ? "Pick a heal target first" : $"Heal {useHeal.Name} for {Rules.Amount(r.Roll) + bonus}");
+            if (ImGui.SmallButton("Heal") && useAlly != null) { p.Gm.ResolveHeal(r, useAlly, bonus); bonus = 0; }
+            Ui.Tooltip(useAlly == null ? "Pick a heal target first" : $"Heal {useAlly.Name} for {Rules.Amount(r.Roll) + bonus}");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Buff") && useAlly != null) p.Gm.ResolveSupport(r, kind == "buff_damage" ? "buff_damage" : "buff_roll", useAlly);
+            Ui.Tooltip(useAlly == null ? "Pick an ally first" : $"+{Rules.BuffAmount(r.Roll)} to {useAlly.Name}'s next {(kind == "buff_damage" ? "damage" : "roll")}");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Shield") && useAlly != null) p.Gm.ResolveSupport(r, "shield", useAlly);
+            Ui.Tooltip(useAlly == null ? "Pick an ally first" : $"+{Rules.BuffAmount(r.Roll)} shield on {useAlly.Name}");
             ImGui.SameLine();
             if (ImGui.SmallButton("Save")) p.Gm.ResolveSimple(r, "save");
             ImGui.SameLine();
@@ -299,6 +358,12 @@ public sealed class GmWindow : Window
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
             ImGui.TextColored(m.Hp <= 0 ? Ui.Grey : Ui.Gold, m.Name);
+            if (m.BuffRoll > 0 || m.BuffDamage > 0)
+            {
+                ImGui.SameLine();
+                if (ImGui.SmallButton($"+{m.BuffRoll}r/+{m.BuffDamage}d")) p.Gm.ClearBuffs(m);
+                Ui.Tooltip("Buffs waiting on their next roll. Click to clear.");
+            }
 
             ImGui.TableNextColumn();
             if (ImGui.SmallButton("-")) p.Gm.AdjustMemberHp(m, -1);
@@ -341,6 +406,9 @@ public sealed class GmWindow : Window
                 ImGui.SameLine();
                 if (ImGui.SmallButton("Unleash Heal")) p.Gm.UnleashMomentum(m, true, fallbackFoe, fallbackAlly);
                 Ui.Tooltip($"{Rules.MomentumUnleashHeal} healing + their next 2 rolls, applied together to {(p.Gm.IntentAlly(m)?.Name ?? fallbackAlly?.Name ?? "their ally")}");
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Unleash Buff")) p.Gm.UnleashBuff(m, fallbackAlly);
+                Ui.Tooltip($"+{Rules.MomentumBuff} to {(p.Gm.IntentAlly(m)?.Name ?? fallbackAlly?.Name ?? "their ally")}'s next roll and +{Rules.MomentumBuff} damage");
             }
             else ImGui.TextColored(Ui.Grey, $"/{m.MomentumMax}");
 
@@ -692,5 +760,15 @@ public sealed class GmWindow : Window
         scenarioPreview = sc;
         scenarioProblems = problems;
         scenarioSource = source;
+    }
+
+    private void SourceBox(SessionInfo ss, string key, string label)
+    {
+        var on = ss.SourceOn(key);
+        if (ImGui.Checkbox($"{label}##src{key}", ref on))
+        {
+            var patch = new System.Collections.Generic.Dictionary<string, bool> { [key] = on };
+            p.Run(() => p.Api.SetSession(new { roll_sources = patch }));
+        }
     }
 }

@@ -152,7 +152,15 @@ public sealed class TrackerWindow : Window
             else if (m.TargetEnemyId is Guid te && s.Enemies.FirstOrDefault(x => x.Id == te) is { } foe)
                 ImGui.TextColored(Ui.Grey, $"-> {foe.Name}");
             else if (m.HealTargetId is Guid th && s.Members.FirstOrDefault(x => x.Id == th) is { } friend)
-                ImGui.TextColored(Ui.Grey, $"-> heal {friend.Name}");
+                ImGui.TextColored(Ui.Grey, GmActions.KindOf(m) switch
+                {
+                    "buff_roll" => $"-> +roll {friend.Name}",
+                    "buff_damage" => $"-> +dmg {friend.Name}",
+                    "shield" => $"-> shield {friend.Name}",
+                    _ => $"-> heal {friend.Name}",
+                });
+            if (m.BuffRoll > 0 || m.BuffDamage > 0)
+                ImGui.TextColored(Ui.Green, $"buffed +{m.BuffRoll} roll / +{m.BuffDamage} dmg");
 
             ImGui.TableNextColumn();
             Ui.Bar(m.HpMax > 0 ? (float)m.Hp / m.HpMax : 0, $"{m.Hp}/{m.HpMax}", Ui.HpColor(m.Hp, m.HpMax), -1, 16);
@@ -187,7 +195,16 @@ public sealed class TrackerWindow : Window
         if (s.Rolls.Count == 0) ImGui.TextColored(Ui.Grey, "No rolls yet. Use /random 10.");
     }
 
-    /// <summary>The local player's own controls: pick who you attack or heal. The GM's resolve uses it.</summary>
+    private static readonly (string Kind, string Label)[] Actions =
+    {
+        ("attack", "Attack"),
+        ("heal", "Heal"),
+        ("buff_roll", "Buff an ally's roll"),
+        ("buff_damage", "Buff an ally's damage"),
+        ("shield", "Shield an ally"),
+    };
+
+    /// <summary>The local player's own controls: what your next roll does, and to whom. The GM's resolve uses it.</summary>
     private void DrawMyAction(GardenState s)
     {
         var meName = Plugin.LocalPlayerName;
@@ -197,42 +214,62 @@ public sealed class TrackerWindow : Window
 
         Ui.Header("YOUR ACTION");
         if (me.Banking)
-        {
             ImGui.TextColored(Ui.Gold, $"{me.BankLabel}! {me.BankAmount} banked - roll /random 10 ({me.BankRolls} more roll{(me.BankRolls == 1 ? "" : "s")}).");
-        }
+        if (me.BuffRoll > 0 || me.BuffDamage > 0)
+            ImGui.TextColored(Ui.Green, $"You're buffed: +{me.BuffRoll} to your next roll, +{me.BuffDamage} to your next damage.");
+        if (me.Shield > 0)
+            ImGui.TextColored(Ui.Green, $"Shield: {me.Shield} (absorbs damage before HP).");
 
-        var foes = s.Enemies.Where(e => e.Visible && (e.Hp > 0 || e.HpMax == 0)).ToList();
-        var currentFoe = s.Enemies.FirstOrDefault(e => e.Id == me.TargetEnemyId);
-        var currentAlly = s.Members.FirstOrDefault(m => m.Id == me.HealTargetId);
+        var kind = GmActions.KindOf(me);
+        if (kind == "") kind = "attack";
+        var kindLabel = Actions.FirstOrDefault(a => a.Kind == kind).Label ?? "Attack";
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Attack:");
+        ImGui.TextUnformatted("Next roll:");
         ImGui.SameLine();
         ImGui.SetNextItemWidth(170);
-        if (ImGui.BeginCombo("##myatk", currentFoe?.Name ?? "-"))
+        if (ImGui.BeginCombo("##mykind", kindLabel))
         {
-            if (ImGui.Selectable("- none -", currentFoe == null)) SetIntent(meName, null, me.HealTargetId);
-            foreach (var e in foes)
-                if (ImGui.Selectable($"{e.Name}##{e.Id}", e.Id == me.TargetEnemyId)) SetIntent(meName, e.Id, null);
+            foreach (var (k, label) in Actions)
+            {
+                if (!ImGui.Selectable(label, k == kind)) continue;
+                // Keep a sensible target when switching between enemy and ally actions.
+                if (k == "attack") SetIntent(meName, k, me.TargetEnemyId, null);
+                else SetIntent(meName, k, null, me.HealTargetId ?? (k == "heal" || k == "shield" ? (Guid?)me.Id : null));
+            }
             ImGui.EndCombo();
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("or Heal:");
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(150);
-        if (ImGui.BeginCombo("##myheal", currentAlly?.Name ?? "-"))
+
+        if (kind == "attack")
         {
-            if (ImGui.Selectable("- none -", currentAlly == null)) SetIntent(meName, me.TargetEnemyId, null);
-            foreach (var m in s.Members)
-                if (ImGui.Selectable($"{m.Name}##{m.Id}", m.Id == me.HealTargetId)) SetIntent(meName, null, m.Id);
-            ImGui.EndCombo();
+            var foes = s.Enemies.Where(e => e.Visible && (e.Hp > 0 || e.HpMax == 0)).ToList();
+            var current = s.Enemies.FirstOrDefault(e => e.Id == me.TargetEnemyId);
+            ImGui.SetNextItemWidth(180);
+            if (ImGui.BeginCombo("##myfoe", current?.Name ?? "pick an enemy"))
+            {
+                foreach (var e in foes)
+                    if (ImGui.Selectable($"{e.Name}##{e.Id}", e.Id == me.TargetEnemyId)) SetIntent(meName, "attack", e.Id, null);
+                ImGui.EndCombo();
+            }
         }
-        Ui.Tooltip("Your GM applies your next roll to this target. Pick one, then /random 10.");
+        else
+        {
+            var current = s.Members.FirstOrDefault(m => m.Id == me.HealTargetId);
+            ImGui.SetNextItemWidth(180);
+            if (ImGui.BeginCombo("##myally", current?.Name ?? "pick an ally"))
+            {
+                foreach (var m in s.Members)
+                    if (ImGui.Selectable($"{m.Name}{(m.Id == me.Id ? " (you)" : "")}##{m.Id}", m.Id == me.HealTargetId)) SetIntent(meName, kind, null, m.Id);
+                ImGui.EndCombo();
+            }
+        }
+        Ui.Tooltip("Pick your action and target, then /random 10. Your GM applies the roll to it.");
     }
 
-    private void SetIntent(string name, Guid? enemy, Guid? heal)
+    private void SetIntent(string name, string kind, Guid? enemy, Guid? ally)
     {
-        p.Run(() => p.Api.SetIntent(name, enemy, heal));
+        p.Run(() => p.Api.SetIntent(name, kind, enemy, ally));
     }
 
     private static void DrawSavesCalled(GardenState s)
@@ -273,6 +310,8 @@ public sealed class TrackerWindow : Window
         "check" => $"{r.Roller} makes a check{Suffix(r)}",
         "enemy" => $"{r.Roller} uses {r.Target} (+{r.Amount} Enemy Momentum)",
         "bank" => $"{r.Roller} ({r.Target}){Suffix(r)}",
+        "buff" => $"{r.Roller} buffs {r.Target}{Suffix(r)}",
+        "shield" => $"{r.Roller} shields {r.Target}{Suffix(r)}",
         "ignored" => $"{r.Roller} (not counted)",
         _ => $"{r.Roller} rolls... (GM resolving)",
     };

@@ -6,6 +6,17 @@ public static class Rules
     public const int MomentumUnleashDamage = 10; // Momentum D: 10 DMG + 2 rolls
     public const int MomentumUnleashHeal = 5;    // Momentum H: 5 healing + 2 rolls
     public const int PotionHeal = 5;
+    public const int MomentumBuff = 5;           // Momentum B: 5 to rolls / 5 damage
+
+    /// <summary>Modifiers [Buffing] table: what a support roll adds (also used for shields).</summary>
+    public static int BuffAmount(int roll) => roll switch
+    {
+        <= 1 => 1,
+        <= 4 => 2,
+        <= 7 => 3,
+        <= 9 => 4,
+        _ => 5,
+    };
 
     /// <summary>Damage or healing for a natural d10 roll (before modifiers).</summary>
     public static int Amount(int roll) => roll switch

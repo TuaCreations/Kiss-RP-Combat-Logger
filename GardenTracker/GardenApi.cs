@@ -88,9 +88,13 @@ public sealed class GardenApi : IDisposable
 
     public Task ClearRolls() => Rpc("garden_clear_rolls", new { p_code = Code, p_key = Key });
 
+    /// <summary>Player-side: report your own roll so it counts even when you're far from the GM.</summary>
+    public Task ReportRoll(string playerName, int roll) =>
+        Rpc("garden_report_roll", new { p_code = Code, p_name = playerName, p_roll = roll });
+
     /// <summary>Player-side: pick your own attack or heal target. Needs only the session code.</summary>
-    public Task SetIntent(string playerName, Guid? enemy, Guid? heal) =>
-        Rpc("garden_set_intent", new { p_code = Code, p_name = playerName, p_enemy = enemy, p_heal = heal });
+    public Task SetIntent(string playerName, string kind, Guid? enemy, Guid? ally) =>
+        Rpc("garden_set_intent", new { p_code = Code, p_name = playerName, p_kind = kind, p_enemy = enemy, p_ally = ally });
 
     public Task StartBank(Guid member, string kind, string label, Guid? enemy, Guid? heal, int amount, int rolls) =>
         Rpc("garden_start_bank", new { p_code = Code, p_key = Key, p_member = member, p_kind = kind, p_label = label, p_enemy = enemy, p_heal = heal, p_amount = amount, p_rolls = rolls });

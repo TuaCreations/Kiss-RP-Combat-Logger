@@ -97,23 +97,31 @@ public sealed class Plugin : IDalamudPlugin
         ChatGui.Print($"[Garden] Joined session {Configuration.SessionCode}.");
     }
 
-    private void OnRollSeen(string name, int roll)
+    private void OnRollSeen(string name, int roll, string source)
     {
-        if (!IsGm || !Configuration.LogRollsAutomatically) return;
+        var session = Sync.Current?.Session;
+        if (session == null) return;
+        if (!session.SourceOn(source)) return;   // GM switched this kind of roll off
 
-        // Ignore bystanders: only characters on the session's party list are logged.
-        if (Configuration.OnlyRosterRolls)
+        var onRoster = Sync.Current!.Members.Exists(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        if (IsGm)
         {
-            var roster = Sync.Current?.Members;
-            if (roster == null || !roster.Exists(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            if (!Configuration.LogRollsAutomatically) return;
+            if (Configuration.OnlyRosterRolls && !onRoster)
             {
                 Log.Debug($"Ignored roll from {name} (not on the party list)");
                 return;
             }
+            // The server matches the roll to a bank or save, and merges duplicates.
+            Run(() => Api.LogRoll(name, roll));
+            return;
         }
 
-        // The server matches the roll to any save this player owes and resolves it automatically.
-        Run(() => Api.LogRoll(name, roll));
+        // Players: report only your OWN rolls, so the GM gets them at any distance.
+        var me = LocalPlayerName;
+        if (session.PlayerReports && onRoster && me != null && name.Equals(me, StringComparison.OrdinalIgnoreCase))
+            Run(() => Api.ReportRoll(name, roll));
     }
 
     /// <summary>Fire-and-forget a server call, surface errors in the UI, and refresh state afterwards.</summary>

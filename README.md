@@ -50,6 +50,9 @@ For other players: send them the build folder (or the packager's zip) and they r
   - **Enemy**: your own enemy-action roll; it is added to Enemy Momentum.
   - **Ignore**: logged as not counted.
 - **Enemy Actions** tab: tick targets if needed and click an ability (e.g. Ember Drain). Each target sees "roll /random 10" highlighted in their window, and their next roll resolves the save automatically: damage (shield first), status, enemy self-heal and Momentum reset are all applied. The enemy's own d10 goes into Enemy Momentum; when it's full, the **Unleash** button fires the scenario's finisher (Whiteout). **Cancel** a waiting save for an Interception or a GM call.
+- **Players' picks:** each player chooses their next action in their window's **YOUR ACTION** row: Attack (enemy), Heal, Buff an ally's roll, Buff an ally's damage, or Shield an ally. Their roll shows a purple **Do: …** button that resolves it that way. Buff and shield amounts use the sheet's Modifiers table (1 → +1, 2–4 → +2, 5–7 → +3, 8–9 → +4, 10 → +5). Roll buffs are spent on the ally's next roll (saves included); a buffed 10 doesn't crit. Damage buffs are spent on their next damage or healing.
+- **Crits and Momentum bank:** a natural 10 banks its damage until the bonus roll lands, then applies one total. **Unleash DMG / Heal** banks 10 DMG / 5 healing plus the next 2 rolls; **Unleash Buff** gives an ally +5 roll and +5 damage.
+- **Roll sources** (Session tab): /random, /dice per channel, and players' own plugins reporting their rolls at any distance. The server merges duplicates (same player, same number, within 3 seconds).
 - The **Party** tab has HP +/-, **Use** potion (+5 HP), Interception, Momentum **Unleash**, effects, and Reset.
 - Enemy HP can also be nudged with -5/-1/+1/+5 in the **Enemies** tab.
 

@@ -24,31 +24,44 @@ public sealed class GmActions
         p.Run(async () =>
         {
             var member = FindMember(roll.Roller);
+            var rollBuff = member?.BuffRoll ?? 0;
+            var dmgBuff = member?.BuffDamage ?? 0;
+            var effective = roll.Roll + rollBuff;           // buffs raise the roll, but only a natural 10 crits
             if (member != null)
-                await Api.UpsertMember(new { id = member.Id, momentum = member.Momentum + roll.Roll });
+                await Api.UpsertMember(new { id = member.Id, momentum = member.Momentum + roll.Roll, buff_roll = 0, buff_damage = 0 });
+            var buffNote = BuffNote(rollBuff, dmgBuff);
 
-            if (enemy.DodgeMax > 0 && roll.Roll <= enemy.DodgeMax)
+            if (enemy.DodgeMax > 0 && effective <= enemy.DodgeMax && roll.Roll < 10)
             {
-                await Api.ResolveRoll(roll.Id, "miss", enemy.Name, 0, $"{enemy.Name} dodges");
+                await Api.ResolveRoll(roll.Id, "miss", enemy.Name, 0, $"{enemy.Name} dodges{buffNote}");
                 return;
             }
 
-            var dmg = Math.Max(0, Rules.Amount(roll.Roll) + bonus);
+            var dmg = Math.Max(0, Rules.Amount(Math.Min(effective, 10)) + bonus + dmgBuff);
 
-            // Crit: bank the 5 and wait for the bonus roll, then apply everything as one hit.
+            // Crit: bank it and wait for the bonus roll, then apply everything as one hit.
             if (Rules.IsCrit(roll.Roll) && member != null)
             {
                 await Api.StartBank(member.Id, "attack", "Crit", enemy.Id, null, dmg, 1);
-                await Api.ResolveRoll(roll.Id, "attack", enemy.Name, dmg, $"CRIT - {dmg} banked, roll again!");
+                await Api.ResolveRoll(roll.Id, "attack", enemy.Name, dmg, $"CRIT - {dmg} banked, roll again!{buffNote}");
                 return;
             }
 
             var hp = Math.Max(0, enemy.Hp - dmg);
             await Api.UpsertEnemy(new { id = enemy.Id, hp });
-            var note = Rules.Label(roll.Roll);
+            var note = Rules.Label(Math.Min(effective, 9)) + buffNote;
             if (hp == 0) note += $" - {enemy.Name} falls!";
             await Api.ResolveRoll(roll.Id, "attack", enemy.Name, dmg, note);
         });
+    }
+
+    private static string BuffNote(int rollBuff, int dmgBuff)
+    {
+        if (rollBuff <= 0 && dmgBuff <= 0) return "";
+        var parts = new System.Collections.Generic.List<string>();
+        if (rollBuff > 0) parts.Add($"+{rollBuff} roll");
+        if (dmgBuff > 0) parts.Add($"+{dmgBuff} dmg");
+        return $" [buffed {string.Join(", ", parts)}]";
     }
 
     public void ResolveHeal(RollEntry roll, PartyMember target, int bonus)
@@ -56,24 +69,73 @@ public sealed class GmActions
         p.Run(async () =>
         {
             var healer = FindMember(roll.Roller);
-            if (healer != null && healer.Id != target.Id)
-                await Api.UpsertMember(new { id = healer.Id, momentum = healer.Momentum + roll.Roll });
+            var rollBuff = healer?.BuffRoll ?? 0;
+            var dmgBuff = healer?.BuffDamage ?? 0;
+            var effective = roll.Roll + rollBuff;
+            var heal = Math.Max(0, Rules.Amount(Math.Min(effective, 10)) + bonus + dmgBuff);
+            var buffNote = BuffNote(rollBuff, dmgBuff);
+            var self = healer != null && healer.Id == target.Id;
 
-            var heal = Math.Max(0, Rules.Amount(roll.Roll) + bonus);
-            var selfMomentum = healer != null && healer.Id == target.Id ? target.Momentum + roll.Roll : target.Momentum;
+            if (healer != null && !self)
+                await Api.UpsertMember(new { id = healer.Id, momentum = healer.Momentum + roll.Roll, buff_roll = 0, buff_damage = 0 });
 
             if (Rules.IsCrit(roll.Roll) && healer != null)
             {
-                if (healer.Id == target.Id) await Api.UpsertMember(new { id = target.Id, momentum = selfMomentum });
+                if (self) await Api.UpsertMember(new { id = target.Id, momentum = target.Momentum + roll.Roll, buff_roll = 0, buff_damage = 0 });
                 await Api.StartBank(healer.Id, "heal", "Crit heal", null, target.Id, heal, 1);
-                await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, $"CRIT - {heal} banked, roll again!");
+                await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, $"CRIT - {heal} banked, roll again!{buffNote}");
                 return;
             }
 
             var hp = Math.Min(target.HpMax, target.Hp + heal);
-            await Api.UpsertMember(new { id = target.Id, hp, momentum = selfMomentum });
-            await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, "");
+            if (self) await Api.UpsertMember(new { id = target.Id, hp, momentum = target.Momentum + roll.Roll, buff_roll = 0, buff_damage = 0 });
+            else await Api.UpsertMember(new { id = target.Id, hp });
+            await Api.ResolveRoll(roll.Id, "heal", target.Name, heal, buffNote.Trim());
         });
+    }
+
+    /// <summary>
+    /// A support roll: buffs the ally's next roll ("buff_roll"), their next damage/healing ("buff_damage"),
+    /// or adds a shield ("shield"). Amount comes from the Modifiers [Buffing] table.
+    /// </summary>
+    public void ResolveSupport(RollEntry roll, string kind, PartyMember ally)
+    {
+        var amount = Rules.BuffAmount(roll.Roll);
+        p.Run(async () =>
+        {
+            var supporter = FindMember(roll.Roller);
+            if (supporter != null && supporter.Id != ally.Id)
+                await Api.UpsertMember(new { id = supporter.Id, momentum = supporter.Momentum + roll.Roll });
+            var selfMomentum = supporter != null && supporter.Id == ally.Id ? ally.Momentum + roll.Roll : ally.Momentum;
+
+            switch (kind)
+            {
+                case "shield":
+                    await Api.UpsertMember(new { id = ally.Id, shield = ally.Shield + amount, momentum = selfMomentum });
+                    await Api.ResolveRoll(roll.Id, "shield", ally.Name, amount, $"+{amount} shield");
+                    break;
+                case "buff_damage":
+                    await Api.UpsertMember(new { id = ally.Id, buff_damage = ally.BuffDamage + amount, momentum = selfMomentum });
+                    await Api.ResolveRoll(roll.Id, "buff", ally.Name, amount, $"+{amount} to their next damage");
+                    break;
+                default:
+                    await Api.UpsertMember(new { id = ally.Id, buff_roll = ally.BuffRoll + amount, momentum = selfMomentum });
+                    await Api.ResolveRoll(roll.Id, "buff", ally.Name, amount, $"+{amount} to their next roll");
+                    break;
+            }
+        });
+    }
+
+    public void ClearBuffs(PartyMember m) => p.Run(() => Api.UpsertMember(new { id = m.Id, buff_roll = 0, buff_damage = 0 }));
+
+    /// <summary>The action a player picked, falling back to what their targets imply.</summary>
+    public static string KindOf(PartyMember? m)
+    {
+        if (m == null) return "";
+        if (!string.IsNullOrEmpty(m.IntentKind)) return m.IntentKind;
+        if (m.TargetEnemyId != null) return "attack";
+        if (m.HealTargetId != null) return "heal";
+        return "";
     }
 
     public void ResolveSimple(RollEntry roll, string outcome, string note = "")
@@ -159,6 +221,21 @@ public sealed class GmActions
             });
             p.Status = $"{m.Name} unleashes Momentum on {foe.Name}: {Rules.MomentumUnleashDamage} DMG banked. Their next 2 rolls add to it.";
         }
+    }
+
+    /// <summary>Momentum B: +5 to the ally's next roll and +5 to their next damage.</summary>
+    public void UnleashBuff(PartyMember m, PartyMember? fallbackAlly)
+    {
+        if (m.Momentum < m.MomentumMax) { p.Status = $"{m.Name} needs {m.MomentumMax} Momentum."; return; }
+        var ally = State?.Members.FirstOrDefault(x => x.Id == m.HealTargetId) ?? fallbackAlly;
+        if (ally == null) { p.Status = $"Pick who {m.Name} buffs first."; return; }
+        p.Run(async () =>
+        {
+            await Api.UpsertMember(new { id = m.Id, momentum = m.Momentum - m.MomentumMax });
+            var fresh = State?.Members.FirstOrDefault(x => x.Id == ally.Id) ?? ally;
+            await Api.UpsertMember(new { id = ally.Id, buff_roll = fresh.BuffRoll + Rules.MomentumBuff, buff_damage = fresh.BuffDamage + Rules.MomentumBuff });
+        });
+        p.Status = $"{m.Name} unleashes Momentum on {ally.Name}: +{Rules.MomentumBuff} to their next roll and +{Rules.MomentumBuff} damage.";
     }
 
     public void CancelBank(PartyMember m) => p.Run(() => Api.CancelBank(m.Id));

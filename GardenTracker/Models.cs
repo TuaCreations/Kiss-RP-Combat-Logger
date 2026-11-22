@@ -85,6 +85,11 @@ public sealed class SessionInfo
     public EnemyAction? MomentumAction { get; set; }
     public List<StatusDef> Statuses { get; set; } = new();
     public bool ShowEnemyHp { get; set; } = true;
+    public bool PlayerReports { get; set; } = true;
+    /// <summary>random, party, alliance, fc, ls, cwls, require_icon</summary>
+    public Dictionary<string, bool> RollSources { get; set; } = new();
+
+    public bool SourceOn(string key) => RollSources.TryGetValue(key, out var on) ? on : key is "random" or "party" or "alliance" or "require_icon";
 }
 
 public sealed class PartyMember
@@ -103,8 +108,13 @@ public sealed class PartyMember
     public int Sort { get; set; }
 
     // What the player picked in their own window
+    public string IntentKind { get; set; } = "";   // attack | heal | buff_roll | buff_damage | shield
     public Guid? TargetEnemyId { get; set; }
-    public Guid? HealTargetId { get; set; }
+    public Guid? HealTargetId { get; set; }        // the ally for heal / buff / shield
+
+    // Buffs waiting on this player's next roll
+    public int BuffRoll { get; set; }
+    public int BuffDamage { get; set; }
 
     // Crit / Momentum bank: the next BankRolls rolls are added up and applied as one lump sum
     public string BankKind { get; set; } = "";   // "" | attack | heal
