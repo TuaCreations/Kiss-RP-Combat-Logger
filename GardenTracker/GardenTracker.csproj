@@ -1,0 +1,17 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <!--
+    Dalamud.NET.Sdk pulls in Dalamud, the ImGui bindings and the packager.
+    If Dalamud has moved to a newer API level when you build, bump the version
+    above to match (check https://www.nuget.org/packages/Dalamud.NET.Sdk).
+  -->
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Description>Live combat tracker for Star Garden roleplay events.</Description>
+    <PackageProjectUrl>https://stargarden.crd.co/</PackageProjectUrl>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Built-in scenarios ship inside the DLL. -->
+    <EmbeddedResource Include="Scenarios\*.json" />
+  </ItemGroup>
+</Project>

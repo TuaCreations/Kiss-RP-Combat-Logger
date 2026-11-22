@@ -1,0 +1,46 @@
+{
+  "format": "kiss-scenario/1",
+  "name": "The Hearthless",
+  "summary": "A warmth-eating voidsent hollows out the Coerthan hamlet of Calderwick. Seal the Rift, kill the beast.",
+  "enemy_momentum_max": 25,
+  "passive": "Cold Light: at 0 HP a player is Hollowed (downed, not dead). An ally's action + a 4+ roll rekindles them at 5 HP.",
+  "statuses": [
+    { "name": "Chill", "effect": "-1 to your rolls", "clears": "End of your next turn, or a warmth/fire heal" },
+    { "name": "Frostbite", "effect": "1 DMG at the start of your turn for 2 turns", "clears": "A potion or a healer action" },
+    { "name": "Hollowed", "effect": "Downed at 0 HP; cannot act", "clears": "Ally action + roll 4+: back up at 5 HP" }
+  ],
+  "momentum_action": {
+    "name": "Whiteout", "targets": "all", "fail_max": 4, "damage": 5,
+    "note": "Fires when Enemy Momentum is full. Interception allowed."
+  },
+  "enemies": [
+    {
+      "name": "Hearthless Wisps", "hp_per_player": 3, "dodge_max": 2, "effects": "Swarm", "phase": 1,
+      "abilities": "PHASE 1. Counts as one target; AOE hits it for full damage.\nFlicker Bite: 3 random players, fail 1-3: 2 DMG + Chill.\nEndless: while the Rift is open, regains 5 HP each enemy turn (GM adds it).",
+      "actions": [
+        { "name": "Flicker Bite", "targets": "random", "count": 3, "fail_max": 3, "damage": 2, "status": "Chill", "phase": 1 }
+      ]
+    },
+    {
+      "name": "The Rift", "hp_per_player": 2, "dodge_max": 0, "effects": "Seal actions only", "phase": 1,
+      "abilities": "Damaged only by SEAL actions (aetherial, alchemical or engineering effort), using the normal DMG table.\nSealed: the Wisps stop regenerating.",
+      "actions": []
+    },
+    {
+      "name": "The Hearthless", "hp_per_player": 12, "dodge_max": 2, "effects": "", "hidden": true, "phase": 2,
+      "abilities": "PHASE 2: Ember Drain (1 chosen, fail 1-4: 4 DMG + Frostbite, heals 2). Rime Howl every other turn (all, fail 1-2: 2 DMG + Chill).\nPHASE 3 at half HP: dodges on 1-3 (GM raises it). Hearth-Hunger hits the highest Momentum.\nWeakness: fire/warmth-flavored attacks +1 DMG.",
+      "actions": [
+        { "name": "Ember Drain", "targets": "choose", "count": 1, "fail_max": 4, "damage": 4, "status": "Frostbite", "heal_self": 2, "phase": 2 },
+        { "name": "Rime Howl", "targets": "all", "fail_max": 2, "damage": 2, "status": "Chill", "phase": 2, "note": "Every other turn" },
+        { "name": "Hearth-Hunger", "targets": "highest_momentum", "count": 1, "fail_max": 5, "damage": 3, "reset_momentum": true, "phase": 3 }
+      ]
+    },
+    {
+      "name": "Rimebound Husks", "hp_per_player": 3, "dodge_max": 1, "effects": "", "hidden": true, "phase": 2,
+      "abilities": "PHASE 2. Bodyguard: the first attack each round aimed at the Hearthless hits the Husks instead.\nTrample: 2 chosen, fail 1-3: 3 DMG.",
+      "actions": [
+        { "name": "Trample", "targets": "choose", "count": 2, "fail_max": 3, "damage": 3, "phase": 2 }
+      ]
+    }
+  ]
+}
