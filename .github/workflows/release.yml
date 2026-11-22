@@ -35,8 +35,10 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.event.release.tag_name }}"
-          $v = $tag.TrimStart('v', 'V')
+          if ($tag -match '\d+(\.\d+){0,3}') { $v = $Matches[0] }
+          else { throw "The release tag must contain a version number like v0.1.0 (got '$tag')." }
           while (($v.Split('.')).Count -lt 4) { $v = "$v.0" }
+          Write-Host "Building version $v from tag $tag"
           "version=$v" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
 
@@ -44,11 +46,13 @@ jobs:
         run: dotnet build GardenTracker/GardenTracker.csproj -c Release -p:Version=${{ steps.ver.outputs.version }}
 
       - name: Find latest.zip
+        id: zip
         shell: pwsh
         run: |
           $zip = Get-ChildItem -Recurse -Path GardenTracker/bin -Filter latest.zip | Select-Object -First 1
           if (-not $zip) { throw "latest.zip was not produced by the build" }
           Copy-Item $zip.FullName latest.zip
+          "path=latest.zip" >> $env:GITHUB_OUTPUT
 
       - name: Attach latest.zip to the release
         uses: softprops/action-gh-release@v2
