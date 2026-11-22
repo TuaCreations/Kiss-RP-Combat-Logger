@@ -31,10 +31,17 @@ public sealed partial class RollWatcher : IDisposable
     [GeneratedRegex(@"Random!?[^\d(]*(?:\((?<min>\d+)-(?<max>\d+)\))?[^\d]*(?<roll>\d+)\D*$", RegexOptions.IgnoreCase)]
     private static partial Regex DiceRegex();
 
+    // "[Momentum]" or "[Momentum D]" / "[Momentum H]" / "[Momentum B]" posted by a player in any chat channel
+    [GeneratedRegex(@"\[\s*Momentum(?:\s+(?<kind>[DHB]))?\s*\]", RegexOptions.IgnoreCase)]
+    private static partial Regex MomentumTagRegex();
+
     [GeneratedRegex(@"[^\p{L}\p{M}' \-]")]
     private static partial Regex NotNameChars();
 
     public event Action<string, int, string>? RollSeen;
+
+    /// <summary>(player name, kind: "" | "D" | "H" | "B")</summary>
+    public event Action<string, string>? MomentumTagSeen;
 
     public RollWatcher(Plugin plugin)
     {
@@ -49,9 +56,23 @@ public sealed partial class RollWatcher : IDisposable
         {
             var message = chat.Message;
             var text = message.TextValue;
-            if (!text.Contains("Random", StringComparison.OrdinalIgnoreCase)) return;
-
             var senderText = chat.Sender.TextValue;
+
+            // [Momentum] tag typed by a player (the game shows who posted it, so nobody can post it for someone else)
+            if (!string.IsNullOrWhiteSpace(senderText) && text.Contains("[", StringComparison.Ordinal))
+            {
+                var tag = MomentumTagRegex().Match(text);
+                if (tag.Success)
+                {
+                    var who = ResolveSender(chat.Sender);
+                    var kind = tag.Groups["kind"].Success ? tag.Groups["kind"].Value.ToUpperInvariant() : "";
+                    Debug($"momentum tag: {who} [Momentum{(kind == "" ? "" : " " + kind)}]");
+                    MomentumTagSeen?.Invoke(who, kind);
+                    return;
+                }
+            }
+
+            if (!text.Contains("Random", StringComparison.OrdinalIgnoreCase)) return;
             if (string.IsNullOrWhiteSpace(senderText))
                 HandleRandom(message, text);
             else
@@ -99,8 +120,17 @@ public sealed partial class RollWatcher : IDisposable
             return;
         }
 
-        // Sender looks like "(②Cecilia Black ✿Balmung)": prefer the clean PlayerPayload name, then match the
-        // party list by name, so slot numbers and world names never get in the way.
+        var name = ResolveSender(sender);
+
+        Raise(name, roll, source, text);
+    }
+
+    /// <summary>
+    /// Sender looks like "(②Cecilia Black ✿Balmung)": prefer the clean PlayerPayload name, then match the
+    /// party list by name, so slot numbers and world names never get in the way.
+    /// </summary>
+    private string ResolveSender(SeString sender)
+    {
         var player = sender.Payloads.OfType<PlayerPayload>().FirstOrDefault();
         var name = player != null && !string.IsNullOrWhiteSpace(player.PlayerName) ? player.PlayerName : CleanName(sender.TextValue);
         var rawSender = sender.TextValue;
@@ -108,14 +138,10 @@ public sealed partial class RollWatcher : IDisposable
             .Where(m => rawSender.Contains(m.Name, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(m => m.Name.Length)
             .FirstOrDefault();
-        if (rosterMatch != null) name = rosterMatch.Name;
-        else
-        {
-            var me = Plugin.LocalPlayerName;
-            if (me != null && rawSender.Contains(me, StringComparison.OrdinalIgnoreCase)) name = me;
-        }
-
-        Raise(name, roll, source, text);
+        if (rosterMatch != null) return rosterMatch.Name;
+        var me = Plugin.LocalPlayerName;
+        if (me != null && rawSender.Contains(me, StringComparison.OrdinalIgnoreCase)) return me;
+        return name;
     }
 
     private bool PassesD10(int roll, string? max, string text)

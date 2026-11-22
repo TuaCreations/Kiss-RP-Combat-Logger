@@ -188,7 +188,7 @@ public sealed class TrackerWindow : Window
             var time = r.CreatedAt.ToLocalTime().ToString("HH:mm");
             ImGui.TextColored(Ui.Grey, time);
             ImGui.SameLine();
-            ImGui.TextColored(r.Roll >= 10 ? Ui.Gold : r.Roll == 1 ? Ui.Red : Ui.Green, $"{r.Roll,2}");
+            ImGui.TextColored(r.Roll >= 10 ? Ui.Gold : r.Roll == 1 ? Ui.Red : Ui.Green, r.Outcome == "momentum" ? " *" : $"{r.Roll,2}");
             ImGui.SameLine();
             ImGui.TextUnformatted(Describe(r));
         }
@@ -265,6 +265,8 @@ public sealed class TrackerWindow : Window
             }
         }
         Ui.Tooltip("Pick your action and target, then /random 10. Your GM applies the roll to it.");
+        if (me.Momentum >= me.MomentumMax && !me.Banking)
+            ImGui.TextColored(Ui.Gold, "Momentum ready! Post [Momentum] in chat to unleash it on your pick (or [Momentum D] / [Momentum H] / [Momentum B]).");
     }
 
     private void SetIntent(string name, string kind, Guid? enemy, Guid? ally)
@@ -311,6 +313,7 @@ public sealed class TrackerWindow : Window
         "enemy" => $"{r.Roller} uses {r.Target} (+{r.Amount} Enemy Momentum)",
         "bank" => $"{r.Roller} ({r.Target}){Suffix(r)}",
         "buff" => $"{r.Roller} buffs {r.Target}{Suffix(r)}",
+        "momentum" => $"{r.Roller} unleashes {r.Target}!{Suffix(r)}",
         "shield" => $"{r.Roller} shields {r.Target}{Suffix(r)}",
         "ignored" => $"{r.Roller} (not counted)",
         _ => $"{r.Roller} rolls... (GM resolving)",

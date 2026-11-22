@@ -89,7 +89,7 @@ public sealed class SessionInfo
     /// <summary>random, party, alliance, fc, ls, cwls, require_icon</summary>
     public Dictionary<string, bool> RollSources { get; set; } = new();
 
-    public bool SourceOn(string key) => RollSources.TryGetValue(key, out var on) ? on : key is "random" or "party" or "alliance" or "require_icon";
+    public bool SourceOn(string key) => RollSources.TryGetValue(key, out var on) ? on : key is "random" or "party" or "alliance" or "require_icon" or "momentum_tag";
 }
 
 public sealed class PartyMember

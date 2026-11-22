@@ -51,6 +51,7 @@ public sealed class Plugin : IDalamudPlugin
         Gm = new GmActions(this);
         Rolls = new RollWatcher(this);
         Rolls.RollSeen += OnRollSeen;
+        Rolls.MomentumTagSeen += OnMomentumTag;
 
         TrackerWindow = new TrackerWindow(this);
         GmWindow = new GmWindow(this);
@@ -124,6 +125,43 @@ public sealed class Plugin : IDalamudPlugin
             Run(() => Api.ReportRoll(name, roll));
     }
 
+    /// <summary>
+    /// A player posted [Momentum]. Their own plugin activates it (and tells them the result);
+    /// the GM's plugin also tries, which covers players without the plugin. The server makes sure it only happens once.
+    /// </summary>
+    private void OnMomentumTag(string name, string kind)
+    {
+        var s = Sync.Current;
+        if (s == null || !s.Session.SourceOn("momentum_tag")) return;
+        if (!s.Members.Exists(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) return;
+
+        var mine = LocalPlayerName != null && name.Equals(LocalPlayerName, StringComparison.OrdinalIgnoreCase);
+        if (!mine && !IsGm) return;
+
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                var result = await Api.PlayerMomentum(name, kind);
+                ChatGui.Print($"[Garden] {(mine ? "" : name + ": ")}{result}");
+            }
+            catch (GardenApiException ex)
+            {
+                // The second of two clients reporting the same tag lands here ("not enough Momentum"); only the poster needs to hear why.
+                if (mine) ChatGui.PrintError($"[Garden] Momentum not activated: {ex.Message}");
+                else Log.Debug($"Momentum tag from {name} not applied: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Momentum tag failed");
+            }
+            finally
+            {
+                Sync.RefreshSoon();
+            }
+        });
+    }
+
     /// <summary>Fire-and-forget a server call, surface errors in the UI, and refresh state afterwards.</summary>
     public void Run(Func<Task> action)
     {
@@ -160,6 +198,7 @@ public sealed class Plugin : IDalamudPlugin
         CommandManager.RemoveHandler(GmCommand);
         WindowSystem.RemoveAllWindows();
         Rolls.RollSeen -= OnRollSeen;
+        Rolls.MomentumTagSeen -= OnMomentumTag;
         Rolls.Dispose();
         Sync.Dispose();
         Api.Dispose();

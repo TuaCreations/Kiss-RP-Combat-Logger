@@ -92,6 +92,13 @@ public sealed class GardenApi : IDisposable
     public Task ReportRoll(string playerName, int roll) =>
         Rpc("garden_report_roll", new { p_code = Code, p_name = playerName, p_roll = roll });
 
+    /// <summary>Player-side: unleash your own Momentum ("" = follow your picked action, or D / H / B). Returns what happened.</summary>
+    public async Task<string> PlayerMomentum(string playerName, string kind)
+    {
+        var body = await Rpc("garden_player_momentum", new { p_code = Code, p_name = playerName, p_kind = kind }).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<string>(body) ?? "";
+    }
+
     /// <summary>Player-side: pick your own attack or heal target. Needs only the session code.</summary>
     public Task SetIntent(string playerName, string kind, Guid? enemy, Guid? ally) =>
         Rpc("garden_set_intent", new { p_code = Code, p_name = playerName, p_kind = kind, p_enemy = enemy, p_ally = ally });

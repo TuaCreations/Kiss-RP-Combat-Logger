@@ -145,6 +145,8 @@ public sealed class GmWindow : Window
             ImGui.SameLine(160 + 60); SourceBox(ss, "ls", "/dice in Linkshells");
             ImGui.SameLine(400); SourceBox(ss, "cwls", "/dice in Cross-world LS");
             SourceBox(ss, "require_icon", "Only count /dice lines with the game's dice icon");
+            SourceBox(ss, "momentum_tag", "Players can post [Momentum] in chat to unleash their own Momentum");
+            Ui.Tooltip("[Momentum] follows their picked action (Attack = D, Heal/Shield = H, Buff = B). [Momentum D], [Momentum H] and [Momentum B] pick directly.");
             Ui.Tooltip("Stops someone faking a roll by typing \"Random! (1-10) 10\" into chat. Turn off if real /dice rolls aren't being counted.");
         }
 
