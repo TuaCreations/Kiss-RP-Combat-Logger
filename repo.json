@@ -1,28 +1,27 @@
 [
   {
-    "Author": "TuaCreations",
-    "Name": "K.I.S.S. RP Combat Logger",
     "InternalName": "GardenTracker",
-    "AssemblyVersion": "0.3.1.0",
-    "Punchline": "Live roll log, enemy HP and party state for K.I.S.S. RP combat events.",
-    "Description": "Shares one live combat state across everyone at a Star Garden RP event. The GM's client reads /random rolls and applies the K.I.S.S. combat rules, enemy abilities call for saves that resolve automatically, and every player sees enemy HP, party HP, Momentum and the roll log, plus enemy markers drawn in the world. Fights load from kiss-scenario files.",
+    "AssemblyVersion": "0.3.2.0",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger",
-    "Tags": [
-      "roleplay",
-      "rp",
-      "combat",
-      "dice",
-      "tracker"
-    ],
     "DalamudApiLevel": 15,
     "LoadPriority": 0,
     "IsHide": false,
     "IsTestingExclusive": false,
     "DownloadCount": 0,
-    "LastUpdate": 1795318704,
-    "DownloadLinkInstall": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.1/latest.zip",
-    "DownloadLinkTesting": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.1/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.1/latest.zip"
+    "LastUpdate": 1795476122,
+    "DownloadLinkInstall": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.2/latest.zip",
+    "DownloadLinkTesting": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.2/latest.zip",
+    "DownloadLinkUpdate": "https://github.com/TuaCreations/Kiss-RP-Combat-Logger/releases/download/v0.3.2/latest.zip",
+    "Name": "K.I.S.S. RP Combat Logger",
+    "Author": "TuaCreations",
+    "Punchline": "Live roll log, enemy HP and party state for K.I.S.S. RP combat (system by the Raven's Nest GMs).",
+    "Description": "Shares one live combat state across everyone at an in-game RP event. The GM's client reads /random and /dice rolls and applies the K.I.S.S. combat rules, enemy abilities call for saves that resolve automatically, and every player sees enemy HP, party HP, Momentum and the roll log, plus enemy markers drawn in the world. Fights load from kiss-scenario files.\n\nThe K.I.S.S. combat system comes from the GM team of the Raven's Nest. Developers: Rhaya, Tashi, Erik, Riku and Rasa. Testing team: Tess, Ceci, Vivi and Brimcon. Thanks to the rest of the Raven's Nest GM team for sharing it.",
+    "Tags": [
+      "roleplay",
+      "rp",
+      "tracker",
+      "dice"
+    ]
   }
 ]
