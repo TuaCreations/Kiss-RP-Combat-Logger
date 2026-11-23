@@ -54,7 +54,9 @@ Clicking an action calls for a save from each target. That player's next `/rando
 
 Anything the macros can't express (regeneration, bodyguards, phase triggers, a rising dodge range) goes in `abilities` text for the GM to apply by hand.
 
-## Balancing reference (Garden K.I.S.S. system)
+## Balancing reference (K.I.S.S. system)
+
+The K.I.S.S. combat system comes from the Raven's Nest GM team: developed by Rhaya, Tashi, Erik, Riku and Rasa, tested by Tess, Ceci, Vivi and Brimcon.
 
 - Players: 20 HP, 3 potions (+5 HP), 1 Interception, Momentum to 25 (10 DMG or 5 healing + 2 rolls).
 - Player damage per roll: 1 → 1, 2–3 → 2, 4–5 → 3, 6–7 → 4, 8–9 → 5, 10 → 5 + another roll. About 3.5 a turn.

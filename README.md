@@ -1,10 +1,18 @@
 # K.I.S.S. RP Combat Logger
 
-A Dalamud plugin (internal project name `GardenTracker`) for Star Garden roleplay events. One shared, live combat state for the whole group:
+A Dalamud plugin (internal project name `GardenTracker`) for in-game FFXIV roleplay events. One shared, live combat state for the whole group:
 
 - **Everyone** sees a window with enemy HP bars, Enemy Momentum, the party's HP / shield / potions / Interception / Momentum, and a roll log.
 - **The GM's** client reads `/random 10` results from chat, queues them, and applies the Garden K.I.S.S. rules with one click (Attack, Heal, Save, Check, Enemy).
 - **Enemy markers** are drawn in the world for everyone: a ring on the ground with the enemy's name and HP bar floating above it. GMs place them at their own position or on a target.
+
+### Credits
+
+The **K.I.S.S. combat system** this plugin runs on (the d10 damage table, Momentum, Interception, buffs and the rest of the rules) comes from the **GM team of the Raven's Nest**. This plugin only automates their system for in-game RP events.
+
+- **Developers:** Rhaya, Tashi, Erik, Riku and Rasa
+- **Testing team:** Tess, Ceci, Vivi and Brimcon
+- **And thanks to the rest of the Raven's Nest GM team** for sharing the system with us.
 
 State lives in Supabase (the `garden` schema of the graduation-rsvp project). Players only ever read it; every change needs the session's GM key.
 

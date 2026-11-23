@@ -35,6 +35,11 @@ public sealed class TrackerWindow : Window
         DrawParty(s);
         DrawRollLog(s);
         DrawStatuses(s);
+
+        ImGui.Spacing();
+        ImGui.PushTextWrapPos(0);
+        ImGui.TextColored(Ui.Grey with { W = 0.6f }, "K.I.S.S. combat system by the Raven's Nest GM team. Developers: Rhaya, Tashi, Erik, Riku and Rasa. Testing: Tess, Ceci, Vivi and Brimcon.");
+        ImGui.PopTextWrapPos();
     }
 
     private void DrawSessionBar()

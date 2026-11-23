@@ -1,6 +1,9 @@
 namespace GardenTracker;
 
-/// <summary>The Garden Hunt K.I.S.S. combat table, as written on the sheet.</summary>
+/// <summary>
+/// The K.I.S.S. combat table, as written on the sheet.
+/// The K.I.S.S. system comes from the Raven's Nest GM team: developed by Rhaya, Tashi, Erik, Riku and Rasa; tested by Tess, Ceci, Vivi and Brimcon.
+/// </summary>
 public static class Rules
 {
     public const int MomentumUnleashDamage = 10; // Momentum D: 10 DMG + 2 rolls

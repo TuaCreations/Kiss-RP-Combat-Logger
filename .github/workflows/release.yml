@@ -65,7 +65,12 @@ jobs:
         run: |
           $url = "https://github.com/${{ github.repository }}/releases/download/${{ steps.ver.outputs.tag }}/latest.zip"
           $repo = Get-Content repo.json -Raw | ConvertFrom-Json
+          $manifest = Get-Content GardenTracker/GardenTracker.json -Raw | ConvertFrom-Json
           foreach ($p in @($repo)) {
+            # Text shown in Dalamud's installer comes from the plugin manifest (one place to edit, credits included)
+            foreach ($field in 'Name', 'Author', 'Punchline', 'Description', 'Tags') {
+              if ($manifest.PSObject.Properties[$field]) { $p | Add-Member -NotePropertyName $field -NotePropertyValue $manifest.$field -Force }
+            }
             $p.AssemblyVersion = "${{ steps.ver.outputs.version }}"
             $p.DownloadLinkInstall = $url
             $p.DownloadLinkTesting = $url

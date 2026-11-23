@@ -6,8 +6,8 @@
   -->
   <PropertyGroup>
     <Version>0.1.0.0</Version>
-    <Description>Live combat tracker for Star Garden roleplay events.</Description>
-    <PackageProjectUrl>https://stargarden.crd.co/</PackageProjectUrl>
+    <Description>Live combat tracker for in-game FFXIV roleplay events.</Description>
+    <PackageProjectUrl>https://github.com/TuaCreations/Kiss-RP-Combat-Logger</PackageProjectUrl>
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>

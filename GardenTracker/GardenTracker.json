@@ -1,8 +1,8 @@
 {
   "Author": "TuaCreations",
   "Name": "K.I.S.S. RP Combat Logger",
-  "Punchline": "Live roll log, enemy HP and party state for Star Garden RP events.",
-  "Description": "Shares one live combat state across everyone in a Star Garden event. The GM's client reads /random rolls from chat and applies the Garden combat rules; every player sees enemy HP, party HP, Momentum and the roll log in a window, plus enemy markers drawn in the world.",
+  "Punchline": "Live roll log, enemy HP and party state for K.I.S.S. RP combat (system by the Raven's Nest GMs).",
+  "Description": "Shares one live combat state across everyone at an in-game RP event. The GM's client reads /random and /dice rolls and applies the K.I.S.S. combat rules, enemy abilities call for saves that resolve automatically, and every player sees enemy HP, party HP, Momentum and the roll log, plus enemy markers drawn in the world. Fights load from kiss-scenario files.\n\nThe K.I.S.S. combat system comes from the GM team of the Raven's Nest. Developers: Rhaya, Tashi, Erik, Riku and Rasa. Testing team: Tess, Ceci, Vivi and Brimcon. Thanks to the rest of the Raven's Nest GM team for sharing it.",
   "Tags": [
     "roleplay",
     "rp",

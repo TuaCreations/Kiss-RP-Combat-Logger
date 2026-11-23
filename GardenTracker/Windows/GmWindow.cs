@@ -193,6 +193,14 @@ public sealed class GmWindow : Window
             if (ImGui.Button("Unleash (spend max)"))
                 p.Run(() => p.Api.SetSession(new { enemy_momentum = Math.Max(0, s.Session.EnemyMomentum - s.Session.EnemyMomentumMax) }));
         }
+
+        Ui.Header("CREDITS");
+        ImGui.PushTextWrapPos(0);
+        ImGui.TextColored(Ui.Grey, "The K.I.S.S. combat system comes from the GM team of the Raven's Nest.");
+        ImGui.TextColored(Ui.Grey, "Developers: Rhaya, Tashi, Erik, Riku and Rasa.");
+        ImGui.TextColored(Ui.Grey, "Testing team: Tess, Ceci, Vivi and Brimcon.");
+        ImGui.TextColored(Ui.Grey, "Thanks to the rest of the Raven's Nest GM team for sharing it.");
+        ImGui.PopTextWrapPos();
     }
 
     // ------------------------------------------------------------------ Rolls
